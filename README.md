@@ -1,5 +1,5 @@
 # moodler
-Moodle resource downloader
+Moodle resource scraper
 
 # how to use
 

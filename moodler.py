@@ -11,9 +11,9 @@ import re
 # author: rob
 
 USAGE = """
-python moodler.py -h <host> -t <token> -c <course_id> [-s <section_id>]
+python moodler.py -h host -t token -c <course_id> [-s <section_id>]
 -h <host>       The host to connect to.
--t <token>      The Moodle session token.
+-t <token>      The Moodle session token. Prefix with @ to read from a file.
 -c <course_id>  The ID of the course to scrape.
 -s <section_id> The ID of the section to scrape.
                 Optional: if only a course ID is provided,
@@ -39,10 +39,10 @@ def eat_arg() -> str | None:
         return None
     return sys.argv[(i:=i+1)]
 
-def eat_value() -> str:
+def eat_value_for(switch) -> str:
     arg = eat_arg()
     if not arg:
-        raise Exception(f'Missing value for {sys.argv[i-1]}.')
+        raise Exception(f'Missing value for {switch}.')
     return arg
 
 try:
@@ -52,13 +52,23 @@ try:
                 print(USAGE)
                 exit()
             case '-h': # host
-                host = eat_value()
+                host = eat_value_for(arg)
             case '-t': # Moodle token
-                token = eat_value()
+                token = eat_value_for(arg)
             case '-c': # course
-                courseId = int(eat_value())
+                courseId = eat_value_for(arg)
+                if not str.isdigit(courseId):
+                    fail('Course ID must be a number.')
+                courseId = int(courseId)
+                if courseId < 0:
+                    fail('Course ID must not be negative.')
             case '-s': # section
-                sectionId = int(eat_value())
+                sectionId = eat_value_for(arg)
+                if not str.isdigit(sectionId):
+                    fail('Section ID must be a number.')
+                sectionId = int(sectionId)
+                if sectionId < 0:
+                    fail('Section ID must not be negative.')
             case unknown:
                 raise Exception(f'Unknown argument: {unknown}.')
 except Exception as e:
@@ -68,14 +78,21 @@ if not host:
     fail('A host must be provided.', True)
 
 if not token:
-    fail('Moodle session token must be provided.', True)
+    fail('Session token must be provided.', True)
 
 if token.startswith('@'):
-    tokenFile = token[1:]
-    if not os.path.exists(tokenFile):
-        fail(f'Token file does not exist.')
-    with open(token[1:], 'r') as f:
-        token = f.read()
+    try:
+        tokenFile = token[1:]
+        if not os.path.exists(tokenFile):
+            fail(f'Session token file does not exist.')
+        with open(token[1:], 'r') as f:
+            token = f.read()
+    except Exception as ex:
+        fail(f'Failed to read session token file: {ex}')
+
+token = token.strip()
+if len(token) == 0:
+    fail('Provided session token is empty.')
 
 if not courseId:
     fail(f'A course ID must be provided.', True)
